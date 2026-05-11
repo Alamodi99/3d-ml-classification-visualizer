@@ -74,10 +74,77 @@ function createUI() {
   panel.appendChild(mSelect);
   panel.appendChild(errLabel);
 
-  document.body.appendChild(panel);
+  const metricsBox = document.createElement("div");
+  metricsBox.id = "metricsBox";
+  metricsBox.style.marginTop = "8px";
+  metricsBox.style.paddingTop = "8px";
+  metricsBox.style.borderTop = "1px solid rgba(255,255,255,0.2)";
+  metricsBox.innerHTML = `<div style="opacity:0.85">Metrics (test set):</div><div id="metricsValues">-</div>`;
 
-  return { dsSelect, mSelect, errOnly };
+  // Panel ist flex -> wir packen metrics darunter in einen wrapper
+  const wrapper = document.createElement("div");
+  wrapper.style.display = "flex";
+  wrapper.style.flexDirection = "column";
+  wrapper.style.gap = "6px";
+
+  // erste Zeile (controls)
+  const row = document.createElement("div");
+  row.style.display = "flex";
+  row.style.gap = "10px";
+  row.style.alignItems = "center";
+
+  // statt alles direkt ins panel: in row
+  // => Wir müssen vorher die bisherigen appendChilds anpassen
+
+
+  document.body.appendChild(panel);
+  const metrics = document.createElement("div");
+  metrics.id = "metricsValues";
+  metrics.style.marginLeft = "10px";
+  metrics.style.padding = "6px 8px";
+  metrics.style.borderRadius = "8px";
+  metrics.style.background = "rgba(255,255,255,0.08)";
+  metrics.style.fontSize = "13px";
+  metrics.style.lineHeight = "1.2";
+  metrics.textContent = "Metrics: -";
+  panel.appendChild(metrics);
+
+
+  return { dsSelect, mSelect, errOnly, metrics };
+
 }
+
+  // Tooltip/Info-Box für Details zu einem ausgewählten Datenpunkt.
+  // Diese Box wird später beim Klick auf einen Punkt aktualisiert.
+  const infoBox = document.createElement("div");
+  infoBox.style.position = "fixed";
+  infoBox.style.right = "12px";
+  infoBox.style.top = "12px";
+  infoBox.style.width = "280px";
+  infoBox.style.padding = "12px";
+  infoBox.style.background = "rgba(0, 0, 0, 0.65)";
+  infoBox.style.color = "white";
+  infoBox.style.fontFamily = "system-ui, Arial, sans-serif";
+  infoBox.style.fontSize = "14px";
+  infoBox.style.borderRadius = "10px";
+  infoBox.style.backdropFilter = "blur(6px)";
+  infoBox.style.zIndex = "9999";
+  infoBox.innerHTML = "<strong>Point Details</strong><br/>Click on a point.";
+  document.body.appendChild(infoBox);
+
+  // Raycaster wird verwendet, um mit der Maus Punkte in der 3D-Szene auszuwählen.
+    const raycaster = new THREE.Raycaster();
+
+  // Bei Punktwolken muss der Threshold etwas größer sein,
+  // damit kleine Punkte leichter anklickbar sind.
+    raycaster.params.Points.threshold = 0.15;
+  
+  // Speichert die aktuelle Mausposition in normalisierten Bildschirmkoordinaten.
+    const mouse = new THREE.Vector2();
+  
+  // Hier speichern wir die aktuell angezeigten Samples,
+  // damit beim Klick der richtige Datensatz ausgelesen werden kann.
+    let visibleSamples = [];
 
 async function fetchJSON(path) {
   const res = await fetch(path);
@@ -149,7 +216,7 @@ async function main() {
   scene.add(new THREE.AmbientLight(0xffffff, 1.0));
 
   // UI
-  const { dsSelect, mSelect, errOnly } = createUI();
+  const { dsSelect, mSelect, errOnly, metrics } = createUI();
 
   // State
   let datasetData = null;
@@ -172,9 +239,21 @@ async function main() {
     const modelObj = datasetData.models.find(m => m.model_name === selectedModelName);
     if (!modelObj) return;
 
+    if (modelObj.metrics && metrics) {
+      const m = modelObj.metrics;
+      metrics.textContent =
+        `Metrics (test): Acc ${m.accuracy.toFixed(3)} | Prec ${m.precision.toFixed(3)} | Rec ${m.recall.toFixed(3)} | F1 ${m.f1.toFixed(3)}`;
+    } else if (metrics) {
+      metrics.textContent = "Metrics: -";
+    }
+
     const samples = errOnly.checked
       ? modelObj.samples.filter(s => !s.is_correct)
       : modelObj.samples;
+
+    // Sichtbare Samples speichern.
+    // Wichtig für die Klick-Interaktion: Der Index im PointCloud entspricht diesem Array.
+    visibleSamples = samples;
 
     if (currentCloud) {
       scene.remove(currentCloud);
@@ -204,6 +283,44 @@ async function main() {
 
   mSelect.addEventListener("change", () => rebuildCloud());
   errOnly.addEventListener("change", () => rebuildCloud());
+
+    // Klick-Interaktion: Beim Klick auf einen Punkt werden Details angezeigt.
+    renderer.domElement.addEventListener("click", (event) => {
+      if (!currentCloud || visibleSamples.length === 0) return;
+  
+      // Mausposition in normalisierte Gerätekoordinaten umrechnen.
+      // Three.js erwartet Werte zwischen -1 und +1.
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  
+      // Raycaster von Kamera durch Mausposition setzen.
+      raycaster.setFromCamera(mouse, camera);
+  
+      // Prüfen, ob ein Punkt der aktuellen Punktwolke getroffen wurde.
+      const intersections = raycaster.intersectObject(currentCloud);
+  
+      if (intersections.length === 0) {
+        infoBox.innerHTML = "<strong>Point Details</strong><br/>No point selected.";
+        return;
+      }
+  
+      // Der erste Treffer ist der nächstgelegene Punkt.
+      const index = intersections[0].index;
+      const sample = visibleSamples[index];
+  
+      // Details des ausgewählten Datenpunkts anzeigen.
+      infoBox.innerHTML = `
+        <strong>Point Details</strong><br/><br/>
+        <b>Dataset:</b> ${datasetData.dataset}<br/>
+        <b>Model:</b> ${mSelect.value}<br/>
+        <b>ID:</b> ${sample.id}<br/>
+        <b>True label:</b> ${sample.true_label}<br/>
+        <b>Predicted label:</b> ${sample.predicted_label}<br/>
+        <b>Confidence:</b> ${sample.confidence.toFixed(3)}<br/>
+        <b>Status:</b> ${sample.is_correct ? "Correct" : "Incorrect"}
+      `;
+    });
 
   // Animation
   function animate() {
