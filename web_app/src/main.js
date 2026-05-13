@@ -1,24 +1,42 @@
 import * as THREE from "three";
 
+// OrbitControls ermöglichen Maussteuerung für die 3D-Kamera.
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+
+/**
+ * Verfügbare Datensätze.
+ * Jede JSON-Datei wurde vorher durch die Python-ML-Pipeline erzeugt.
+ */
 const DATASETS = [
   { key: "iris", label: "Iris", file: "/iris_models_3d.json" },
   { key: "wine", label: "Wine", file: "/wine_models_3d.json" },
   { key: "breast_cancer", label: "Breast Cancer", file: "/breast_cancer_models_3d.json" },
 ];
 
+/**
+ * Lesbare Namen für die Klassifikationsmodelle.
+ */
 const MODEL_LABELS = {
   logistic_regression: "Logistic Regression",
   random_forest: "Random Forest",
   svm_rbf: "SVM (RBF)",
+  knn: "kNN",
 };
 
+// Globale Referenz auf die Legenden-Box.
+// Wird in createUI() erstellt und in updateLegend() aktualisiert.
+let legendBox = null;
+
+/**
+ * Erstellt das Bedienpanel oben links.
+ */
 function createUI() {
   const panel = document.createElement("div");
   panel.style.position = "fixed";
   panel.style.top = "12px";
   panel.style.left = "12px";
   panel.style.padding = "10px 12px";
-  panel.style.background = "rgba(0,0,0,0.55)";
+  panel.style.background = "rgba(0,0,0,0.65)";
   panel.style.color = "white";
   panel.style.fontFamily = "system-ui, Arial, sans-serif";
   panel.style.fontSize = "14px";
@@ -52,52 +70,42 @@ function createUI() {
   mSelect.style.padding = "6px";
   mSelect.style.borderRadius = "8px";
 
-  const errLabel = document.createElement("label");
-  errLabel.style.display = "flex";
-  errLabel.style.gap = "6px";
-  errLabel.style.alignItems = "center";
-  errLabel.style.cursor = "pointer";
+  // Dropdown zur Auswahl des Farbmodus.
+  // Der Benutzer kann wählen, welche Informationen farblich dargestellt werden.
+  const colorModeLabel = document.createElement("span");
+  colorModeLabel.textContent = "Color:";
+
+  const colorModeSelect = document.createElement("select");
+  colorModeSelect.id = "colorModeSelect";
+  colorModeSelect.style.padding = "6px";
+  colorModeSelect.style.borderRadius = "8px";
+
+  // Verfügbare Farbmodi.
+  const colorModes = [
+    { value: "predicted", label: "Predicted" },
+    { value: "true", label: "True Labels" },
+    { value: "errors", label: "Errors" }
+  ];
+
+  for (const mode of colorModes) {
+    const opt = document.createElement("option");
+    opt.value = mode.value;
+    opt.textContent = mode.label;
+    colorModeSelect.appendChild(opt);
+  }
 
   const errOnly = document.createElement("input");
   errOnly.type = "checkbox";
   errOnly.id = "errorsOnly";
 
-  const errText = document.createElement("span");
-  errText.textContent = "Errors only";
-
+  const errLabel = document.createElement("label");
+  errLabel.style.display = "flex";
+  errLabel.style.gap = "6px";
+  errLabel.style.alignItems = "center";
+  errLabel.style.cursor = "pointer";
   errLabel.appendChild(errOnly);
-  errLabel.appendChild(errText);
+  errLabel.appendChild(document.createTextNode("Errors only"));
 
-  panel.appendChild(dsLabel);
-  panel.appendChild(dsSelect);
-  panel.appendChild(mLabel);
-  panel.appendChild(mSelect);
-  panel.appendChild(errLabel);
-
-  const metricsBox = document.createElement("div");
-  metricsBox.id = "metricsBox";
-  metricsBox.style.marginTop = "8px";
-  metricsBox.style.paddingTop = "8px";
-  metricsBox.style.borderTop = "1px solid rgba(255,255,255,0.2)";
-  metricsBox.innerHTML = `<div style="opacity:0.85">Metrics (test set):</div><div id="metricsValues">-</div>`;
-
-  // Panel ist flex -> wir packen metrics darunter in einen wrapper
-  const wrapper = document.createElement("div");
-  wrapper.style.display = "flex";
-  wrapper.style.flexDirection = "column";
-  wrapper.style.gap = "6px";
-
-  // erste Zeile (controls)
-  const row = document.createElement("div");
-  row.style.display = "flex";
-  row.style.gap = "10px";
-  row.style.alignItems = "center";
-
-  // statt alles direkt ins panel: in row
-  // => Wir müssen vorher die bisherigen appendChilds anpassen
-
-
-  document.body.appendChild(panel);
   const metrics = document.createElement("div");
   metrics.id = "metricsValues";
   metrics.style.marginLeft = "10px";
@@ -107,15 +115,46 @@ function createUI() {
   metrics.style.fontSize = "13px";
   metrics.style.lineHeight = "1.2";
   metrics.textContent = "Metrics: -";
+
+  panel.appendChild(dsLabel);
+  panel.appendChild(dsSelect);
+  panel.appendChild(mLabel);
+  panel.appendChild(mSelect);
+  panel.appendChild(colorModeLabel);
+  panel.appendChild(colorModeSelect);
+  panel.appendChild(errLabel);
   panel.appendChild(metrics);
 
+  document.body.appendChild(panel);
 
-  return { dsSelect, mSelect, errOnly, metrics };
+  // Dynamische Legende für Klassenfarben.
+  // Die Legende zeigt, welche Farbe welcher Klasse entspricht.
+  const legendBox = document.createElement("div");
 
+  legendBox.style.position = "fixed";
+  legendBox.style.right = "12px";
+  legendBox.style.bottom = "12px";
+  legendBox.style.minWidth = "180px";
+  legendBox.style.padding = "12px";
+  legendBox.style.background = "rgba(0, 0, 0, 0.65)";
+  legendBox.style.color = "white";
+  legendBox.style.fontFamily = "system-ui, Arial, sans-serif";
+  legendBox.style.fontSize = "14px";
+  legendBox.style.borderRadius = "10px";
+  legendBox.style.backdropFilter = "blur(6px)";
+  legendBox.style.zIndex = "9999";
+
+  legendBox.innerHTML = "<strong>Legend</strong>";
+
+  document.body.appendChild(legendBox);
+
+  return { dsSelect, mSelect, errOnly, metrics, colorModeSelect };
 }
 
-  // Tooltip/Info-Box für Details zu einem ausgewählten Datenpunkt.
-  // Diese Box wird später beim Klick auf einen Punkt aktualisiert.
+/**
+ * Erstellt die Info-Box für Details zu einem angeklickten Datenpunkt.
+ */
+function createInfoBox() {
   const infoBox = document.createElement("div");
   infoBox.style.position = "fixed";
   infoBox.style.right = "12px";
@@ -131,36 +170,92 @@ function createUI() {
   infoBox.style.zIndex = "9999";
   infoBox.innerHTML = "<strong>Point Details</strong><br/>Click on a point.";
   document.body.appendChild(infoBox);
+  return infoBox;
+}
 
-  // Raycaster wird verwendet, um mit der Maus Punkte in der 3D-Szene auszuwählen.
-    const raycaster = new THREE.Raycaster();
-
-  // Bei Punktwolken muss der Threshold etwas größer sein,
-  // damit kleine Punkte leichter anklickbar sind.
-    raycaster.params.Points.threshold = 0.15;
-  
-  // Speichert die aktuelle Mausposition in normalisierten Bildschirmkoordinaten.
-    const mouse = new THREE.Vector2();
-  
-  // Hier speichern wir die aktuell angezeigten Samples,
-  // damit beim Klick der richtige Datensatz ausgelesen werden kann.
-    let visibleSamples = [];
-
+/**
+ * Lädt eine JSON-Datei aus dem public-Verzeichnis der Web-App.
+ */
 async function fetchJSON(path) {
   const res = await fetch(path);
   if (!res.ok) throw new Error(`JSON nicht gefunden: ${path}`);
   return await res.json();
 }
 
+/**
+ * Erzeugt eine stabile Farbe für beliebige Klassenbezeichnungen.
+ * Dadurch funktioniert die Visualisierung auch für Datensätze mit unterschiedlicher Klassenanzahl.
+ */
 function hashColorFromLabel(label) {
-  // stabile Farbe pro Label (funktioniert für beliebige Klassenanzahl)
   let h = 0;
   const s = String(label);
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  }
+
   const r = 0.2 + ((h & 255) / 255) * 0.7;
   const g = 0.2 + (((h >> 8) & 255) / 255) * 0.7;
   const b = 0.2 + (((h >> 16) & 255) / 255) * 0.7;
+
   return new THREE.Color(r, g, b);
+}
+
+/**
+ * Baut aus den Sample-Daten eine Three.js-Punktwolke.
+ */
+function updateLegend(samples, colorMode) {
+  // Vorhandene Einträge löschen.
+  if (!legendBox) return;
+  // Vorhandene Einträge löschen.
+  legendBox.innerHTML = "<strong>Legend</strong><br/><br/>";
+
+  const labels = new Set();
+
+  // Abhängig vom Farbmodus unterschiedliche Labels sammeln.
+  for (const s of samples) {
+    if (colorMode === "true") {
+      labels.add(s.true_label);
+    }
+
+    else if (colorMode === "predicted") {
+      labels.add(s.predicted_label);
+    }
+
+    else if (colorMode === "errors") {
+      labels.add(s.is_correct ? "correct" : "incorrect");
+    }
+  }
+
+  // Für jedes Label einen Farbeintrag erzeugen.
+  for (const label of labels) {
+    const row = document.createElement("div");
+
+    row.style.display = "flex";
+    row.style.alignItems = "center";
+    row.style.gap = "8px";
+    row.style.marginBottom = "6px";
+
+    const colorBox = document.createElement("div");
+    colorBox.style.width = "14px";
+    colorBox.style.height = "14px";
+    colorBox.style.borderRadius = "3px";
+
+    const color = hashColorFromLabel(label);
+
+    colorBox.style.background =
+      `rgb(${Math.floor(color.r * 255)},
+           ${Math.floor(color.g * 255)},
+           ${Math.floor(color.b * 255)})`;
+
+    const text = document.createElement("span");
+    text.textContent = label;
+
+    row.appendChild(colorBox);
+    row.appendChild(text);
+
+    legendBox.appendChild(row);
+  }
 }
 
 function buildPointCloud(samples, colorMode = "predicted") {
@@ -170,12 +265,34 @@ function buildPointCloud(samples, colorMode = "predicted") {
 
   for (let i = 0; i < n; i++) {
     const p = samples[i].position;
+
     positions[i * 3 + 0] = p[0];
     positions[i * 3 + 1] = p[1];
     positions[i * 3 + 2] = p[2];
 
-    const label = colorMode === "true" ? samples[i].true_label : samples[i].predicted_label;
+        let label;
+
+    // Farbmodus: echte Klassen
+    if (colorMode === "true") {
+      label = samples[i].true_label;
+    }
+
+    // Farbmodus: vorhergesagte Klassen
+    else if (colorMode === "predicted") {
+      label = samples[i].predicted_label;
+    }
+
+    // Farbmodus: Fehleranalyse
+    else if (colorMode === "errors") {
+      label = samples[i].is_correct ? "correct" : "incorrect";
+    }
+
+    else {
+      label = samples[i].predicted_label;
+    }
+
     const c = hashColorFromLabel(label);
+
     colors[i * 3 + 0] = c.r;
     colors[i * 3 + 1] = c.g;
     colors[i * 3 + 2] = c.b;
@@ -196,10 +313,11 @@ function buildPointCloud(samples, colorMode = "predicted") {
 }
 
 async function main() {
-  // Scene
+  // Szene erstellen.
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0f0f12);
 
+  // Kamera erstellen.
   const camera = new THREE.PerspectiveCamera(
     70,
     window.innerWidth / window.innerHeight,
@@ -208,22 +326,44 @@ async function main() {
   );
   camera.position.set(0, 0, 10);
 
+  // Renderer erstellen.
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.style.margin = "0";
   document.body.appendChild(renderer.domElement);
 
+  // OrbitControls für interaktive Navigation.
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.enableZoom = true;
+  controls.autoRotate = false;
+
+  // Grundbeleuchtung.
   scene.add(new THREE.AmbientLight(0xffffff, 1.0));
 
-  // UI
-  const { dsSelect, mSelect, errOnly, metrics } = createUI();
+  // UI und Info-Box erstellen.
+  const { dsSelect, mSelect, errOnly, metrics, colorModeSelect } = createUI();
+  const infoBox = createInfoBox();
 
-  // State
+  // Raycaster für Klick-Interaktion auf Punkte.
+  const raycaster = new THREE.Raycaster();
+  raycaster.params.Points.threshold = 0.15;
+
+  // Mausposition für Raycasting.
+  const mouse = new THREE.Vector2();
+
+  // Zustand der Anwendung.
   let datasetData = null;
   let currentCloud = null;
+  let visibleSamples = [];
 
+  /**
+   * Füllt das Modell-Dropdown dynamisch anhand der Modelle in der JSON-Datei.
+   */
   function fillModelSelect(models) {
     mSelect.innerHTML = "";
+
     for (const m of models) {
       const opt = document.createElement("option");
       opt.value = m.model_name;
@@ -232,29 +372,39 @@ async function main() {
     }
   }
 
+  /**
+   * Baut die aktuelle Punktwolke neu auf, wenn Dataset, Modell oder Filter geändert wird.
+   */
   function rebuildCloud() {
     if (!datasetData) return;
 
     const selectedModelName = mSelect.value;
-    const modelObj = datasetData.models.find(m => m.model_name === selectedModelName);
+    const modelObj = datasetData.models.find(
+      (m) => m.model_name === selectedModelName
+    );
+
     if (!modelObj) return;
 
+    // Testmetriken aus der JSON-Datei anzeigen.
     if (modelObj.metrics && metrics) {
       const m = modelObj.metrics;
       metrics.textContent =
-        `Metrics (test): Acc ${m.accuracy.toFixed(3)} | Prec ${m.precision.toFixed(3)} | Rec ${m.recall.toFixed(3)} | F1 ${m.f1.toFixed(3)}`;
+        `Metrics (test): Acc ${m.accuracy.toFixed(3)} | ` +
+        `Prec ${m.precision.toFixed(3)} | ` +
+        `Rec ${m.recall.toFixed(3)} | ` +
+        `F1 ${m.f1.toFixed(3)}`;
     } else if (metrics) {
       metrics.textContent = "Metrics: -";
     }
 
+    // Optional nur Fehlklassifikationen anzeigen.
     const samples = errOnly.checked
-      ? modelObj.samples.filter(s => !s.is_correct)
+      ? modelObj.samples.filter((s) => !s.is_correct)
       : modelObj.samples;
 
-    // Sichtbare Samples speichern.
-    // Wichtig für die Klick-Interaktion: Der Index im PointCloud entspricht diesem Array.
     visibleSamples = samples;
 
+    // Alte Punktwolke entfernen.
     if (currentCloud) {
       scene.remove(currentCloud);
       currentCloud.geometry.dispose();
@@ -262,75 +412,86 @@ async function main() {
       currentCloud = null;
     }
 
-    currentCloud = buildPointCloud(samples, "predicted");
+    // Neue Punktwolke hinzufügen.
+        currentCloud = buildPointCloud(
+      samples,
+      colorModeSelect.value
+    );
+    
+    // Legende entsprechend des aktuellen Farbmodus aktualisieren.
+    updateLegend(samples, colorModeSelect.value);
     scene.add(currentCloud);
   }
 
+  /**
+   * Lädt einen Datensatz und aktualisiert die Visualisierung.
+   */
   async function loadDataset(key) {
-    const ds = DATASETS.find(d => d.key === key);
+    const ds = DATASETS.find((d) => d.key === key);
     datasetData = await fetchJSON(ds.file);
     fillModelSelect(datasetData.models);
     rebuildCloud();
   }
 
-  // Initial load
+  // Initial Iris laden.
   await loadDataset("iris");
 
-  // Events
+  // UI-Events.
   dsSelect.addEventListener("change", async () => {
     await loadDataset(dsSelect.value);
   });
 
   mSelect.addEventListener("change", () => rebuildCloud());
-  errOnly.addEventListener("change", () => rebuildCloud());
 
-    // Klick-Interaktion: Beim Klick auf einen Punkt werden Details angezeigt.
-    renderer.domElement.addEventListener("click", (event) => {
-      if (!currentCloud || visibleSamples.length === 0) return;
-  
-      // Mausposition in normalisierte Gerätekoordinaten umrechnen.
-      // Three.js erwartet Werte zwischen -1 und +1.
-      const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-  
-      // Raycaster von Kamera durch Mausposition setzen.
-      raycaster.setFromCamera(mouse, camera);
-  
-      // Prüfen, ob ein Punkt der aktuellen Punktwolke getroffen wurde.
-      const intersections = raycaster.intersectObject(currentCloud);
-  
-      if (intersections.length === 0) {
-        infoBox.innerHTML = "<strong>Point Details</strong><br/>No point selected.";
-        return;
-      }
-  
-      // Der erste Treffer ist der nächstgelegene Punkt.
-      const index = intersections[0].index;
-      const sample = visibleSamples[index];
-  
-      // Details des ausgewählten Datenpunkts anzeigen.
-      infoBox.innerHTML = `
-        <strong>Point Details</strong><br/><br/>
-        <b>Dataset:</b> ${datasetData.dataset}<br/>
-        <b>Model:</b> ${mSelect.value}<br/>
-        <b>ID:</b> ${sample.id}<br/>
-        <b>True label:</b> ${sample.true_label}<br/>
-        <b>Predicted label:</b> ${sample.predicted_label}<br/>
-        <b>Confidence:</b> ${sample.confidence.toFixed(3)}<br/>
-        <b>Status:</b> ${sample.is_correct ? "Correct" : "Incorrect"}
-      `;
-    });
+  // Farbmodus ändern.
+  colorModeSelect.addEventListener("change", () => rebuildCloud());
 
-  // Animation
+  // Klick-Interaktion für Punktdetails.
+  renderer.domElement.addEventListener("click", (event) => {
+    if (!currentCloud || visibleSamples.length === 0) return;
+
+    const rect = renderer.domElement.getBoundingClientRect();
+
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+
+    const intersections = raycaster.intersectObject(currentCloud);
+
+    if (intersections.length === 0) {
+      infoBox.innerHTML = "<strong>Point Details</strong><br/>No point selected.";
+      return;
+    }
+
+    const index = intersections[0].index;
+    const sample = visibleSamples[index];
+
+    infoBox.innerHTML = `
+      <strong>Point Details</strong><br/><br/>
+      <b>Dataset:</b> ${datasetData.dataset}<br/>
+      <b>Model:</b> ${mSelect.value}<br/>
+      <b>ID:</b> ${sample.id}<br/>
+      <b>True label:</b> ${sample.true_label}<br/>
+      <b>Predicted label:</b> ${sample.predicted_label}<br/>
+      <b>Confidence:</b> ${sample.confidence.toFixed(3)}<br/>
+      <b>Status:</b> ${sample.is_correct ? "Correct" : "Incorrect"}
+    `;
+  });
+
+  // Animationsloop.
   function animate() {
     requestAnimationFrame(animate);
-    if (currentCloud) currentCloud.rotation.y += 0.002;
+
+    // OrbitControls müssen bei Damping in jedem Frame aktualisiert werden.
+    controls.update();
+
     renderer.render(scene, camera);
   }
+
   animate();
 
-  // Resize
+  // Fenstergrößenänderungen behandeln.
   window.addEventListener("resize", () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
