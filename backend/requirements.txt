@@ -1,0 +1,6 @@
+flask>=3.0
+flask-cors>=6.0
+pandas>=2.0
+numpy>=1.23
+scikit-learn>=1.6
+umap-learn>=0.5

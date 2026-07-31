@@ -1,8 +1,15 @@
+# Python
 .venv/
 __pycache__/
 *.pyc
 
+# Node.js
 node_modules/
 dist/
 
-exports/*.json
+# Generierte Dateien
+data/*.json
+
+# Betriebssystem
+.DS_Store
+Thumbs.db

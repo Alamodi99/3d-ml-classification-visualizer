@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Titel der Anwendung -->
+    <title>3D Klassifikationsvisualisierung — HTW Berlin</title>
+
+    <!-- Basis-Stylesheet — enthält alle CSS-Klassen der Anwendung -->
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+
+  <body>
+
+    <!-- ── LADEINDIKATOR ──────────────────────────────────────────────────── -->
+    <!--
+      Wird beim Laden eines Datensatzes angezeigt.
+      JavaScript schaltet die Klasse "active" ein/aus.
+      Siehe: ui.js → showLoading() / hideLoading()
+    -->
+    <div id="loading-overlay" class="loading-overlay">
+      <div class="spinner"></div>
+      <span class="loading-text">Datensatz wird geladen…</span>
+    </div>
+
+    <!-- ── TOOLTIP (Hover über Datenpunkt) ───────────────────────────────── -->
+    <!--
+      Erscheint beim Überfahren eines Datenpunkts mit der Maus.
+      Position und Inhalt werden per JavaScript gesetzt.
+      Siehe: ui.js → showTooltip() / hideTooltip()
+    -->
+    <div id="tooltip" class="tooltip"></div>
+
+    <!-- ── STEUERUNGSPANEL (oben links) ──────────────────────────────────── -->
+    <!--
+      Enthält alle Bedienelemente der Anwendung:
+      Datensatz, Modell, Reduktion, Farbmodus, Filter, Buttons, Suche.
+      Wird dynamisch per JavaScript befüllt.
+      Siehe: ui.js → buildPanel()
+    -->
+    <div id="panel" class="panel"></div>
+
+    <!-- ── INFO-BOX (Punkt-Details, oben rechts) ─────────────────────────── -->
+    <!--
+      Zeigt Details eines angeklickten Datenpunkts:
+      Datensatz, Modell, Reduktion, ID, Klasse, Konfidenz, Features.
+      Inhalt wird per JavaScript gesetzt.
+      Siehe: ui.js → showPointDetails() / resetInfoBox()
+    -->
+    <div id="info-box" class="info-box">
+      <div class="info-box-title">Punkt-Details</div>
+      <span class="info-label">Klicke auf einen Punkt.</span>
+    </div>
+
+    <!-- ── LEGENDE (unten rechts) ────────────────────────────────────────── -->
+    <!--
+      Zeigt Klassenfarben der aktuellen Visualisierung.
+      Wird per JavaScript befüllt wenn ein Datensatz geladen wird.
+      Siehe: visualization.js → updateLegend()
+    -->
+    <div id="legend" class="legend">
+      <div class="legend-title">Legende</div>
+    </div>
+
+    <!-- ── CSV-UPLOAD MODAL ───────────────────────────────────────────────── -->
+    <!--
+      Dialog zum Hochladen eigener CSV-Datensätze.
+      Wird per JavaScript geöffnet wenn "CSV laden" geklickt wird.
+      Das Backend (backend/app.py) verarbeitet die Datei und
+      berechnet PCA, UMAP und t-SNE.
+      Siehe: ui.js → initCSVUpload()
+    -->
+    <div id="csv-modal" class="modal-overlay">
+      <div class="modal-dialog">
+
+        <!-- Titel und Beschreibung -->
+        <div class="modal-title">📂 CSV-Datensatz laden</div>
+        <div class="modal-subtitle">
+          Lade deinen eigenen Datensatz als CSV-Datei hoch.
+          Eine Spalte muss die Klassenbezeichnungen enthalten.
+        </div>
+
+        <!-- Datei-Auswahl -->
+        <div style="margin-bottom:16px;">
+          <div class="modal-field-label">CSV-Datei</div>
+          <input
+            type="file"
+            id="csv-file-input"
+            accept=".csv"
+            class="modal-file-input"
+          />
+        </div>
+
+        <!-- Zielspalten-Auswahl (wird dynamisch befüllt nach Datei-Auswahl) -->
+        <div id="csv-columns-info" style="display:none; margin-bottom:16px;">
+          <div class="modal-field-label">Zielspalte (Klassen)</div>
+          <select id="csv-target-column" class="modal-select"></select>
+          <div id="csv-file-info" style="font-size:11px;color:#64748b;margin-top:6px;"></div>
+        </div>
+
+        <!-- Status-Anzeige (Fehler, Ladehinweise) -->
+        <div id="csv-status" class="modal-status"></div>
+
+        <!-- Aktions-Buttons -->
+        <div class="modal-actions">
+
+          <!-- Abbrechen — schließt den Dialog ohne Aktion -->
+          <button id="csv-cancel-btn">
+            Abbrechen
+          </button>
+
+          <!-- Laden — sendet CSV ans Backend und startet Visualisierung -->
+          <button id="csv-load-btn" class="btn btn-warning" disabled>
+            Laden &amp; Visualisieren
+          </button>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── HAUPTSKRIPT ────────────────────────────────────────────────────── -->
+    <!--
+      Lädt die Hauptanwendung als ES-Modul.
+      main.js importiert alle anderen Module:
+        - config.js        → Konfiguration (Datensätze, Modelle, Farben)
+        - visualization.js → Three.js Logik (Punktwolke, Achsen, Legende)
+        - ui.js            → UI-Elemente (Panel, Buttons, Dialoge)
+        - compare.js       → Split-Screen Modellvergleich
+    -->
+    <script type="module" src="/src/main.js"></script>
+
+  </body>
+</html>
