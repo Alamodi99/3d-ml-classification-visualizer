@@ -1,7 +1,5 @@
 # Interaktive 3D-Visualisierung von Klassifikationsergebnissen
 
-**Bachelorarbeit** — Ibrahim Al-Amodi — Matrikelnummer: 574903
-**Hochschule:** HTW Berlin — Studiengang: Angewandte Informatik
 
 ## Projektstruktur
 
