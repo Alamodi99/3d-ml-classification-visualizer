@@ -38,4 +38,6 @@ export const PALETTE = [
 /**
  * Flask Backend URL für CSV-Upload eigener Datensätze.
  */
-export const BACKEND_URL = "http://localhost:5001";
+//export const BACKEND_URL = "http://localhost:5001";
+
+export const BACKEND_URL = "https://threed-ml-classification-visualizer.onrender.com";
