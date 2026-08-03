@@ -578,7 +578,7 @@ export function initCSVUpload(onDataLoaded) {
       const data = await res.json();
 
       if (data.error) {
-        status.innerHTML = `<span style="color:#f87171;">❌ ${data.error}</span>`;
+        status.innerHTML = `<span style="color:#f87171;"> ${data.error}</span>`;
         loadBtn.disabled = false;
         return;
       }
@@ -587,7 +587,7 @@ export function initCSVUpload(onDataLoaded) {
       onDataLoaded(data);
 
     } catch (err) {
-      status.innerHTML = `<span style="color:#f87171;">❌ Fehler: ${err.message}</span>`;
+      status.innerHTML = `<span style="color:#f87171;"> Fehler: ${err.message}</span>`;
       loadBtn.disabled = false;
     }
   });

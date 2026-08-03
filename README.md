@@ -64,6 +64,7 @@ npm run dev
 |------------|-------------|
 | ML & Datenverarbeitung | Python, scikit-learn, UMAP, t-SNE |
 | Backend API | Flask, Flask-CORS, pandas |
-| 3D-Visualisierung | Three.js (r128), WebGL |
+| 3D-Visualisierung |  Three.js (^0.182.0), WebGL |
 | Build-Tool | Vite |
 | Steuerung | Vanilla JavaScript |
+

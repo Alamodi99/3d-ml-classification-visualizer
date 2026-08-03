@@ -286,7 +286,7 @@ canvas {
 
 .legend {
   position: fixed;
-  right: 12px;
+  left: 12px;
   bottom: 12px;
   min-width: 180px;
   padding: 14px;
