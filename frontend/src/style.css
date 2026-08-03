@@ -70,6 +70,20 @@ canvas {
   border-color: rgba(99, 102, 241, 0.5);
 }
 
+/* Dropdown-Liste (Options) explizit stylen — sonst nutzt der Browser
+   eigene Standardfarben mit zu wenig Kontrast zum dunklen Theme */
+.field select option {
+  background: #12141c;
+  color: #e2e8f0;
+}
+
+.field select option:checked,
+.field select option:hover,
+.field select option:focus {
+  background: #6366f1;
+  color: #ffffff;
+}
+
 /* ── CHECKBOXEN ─────────────────────────────────────────────────────────────── */
 
 .checkbox-label {
@@ -438,6 +452,18 @@ canvas {
   font-size: 13px;
   cursor: pointer;
   outline: none;
+}
+
+.modal-select option {
+  background: #12141c;
+  color: #e2e8f0;
+}
+
+.modal-select option:checked,
+.modal-select option:hover,
+.modal-select option:focus {
+  background: #6366f1;
+  color: #ffffff;
 }
 
 .modal-status {
