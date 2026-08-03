@@ -104,10 +104,10 @@ def upload_csv():
         return jsonify({"error": str(e)}), 500
 
 
-if __name__ == '__main__':
-    print("Backend läuft auf http://localhost:5001")
-    app.run(debug=True, port=5001, threaded=True)
-
 #if __name__ == '__main__':
-   # port = int(os.environ.get("PORT", 5001))
-   # app.run(host="0.0.0.0", port=port, debug=False)
+    #print("Backend läuft auf http://localhost:5001")
+    #app.run(debug=True, port=5001, threaded=True)
+
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5001))
+    app.run(host="0.0.0.0", port=port, debug=False)
